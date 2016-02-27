@@ -216,11 +216,11 @@ object ParamValidators {
     value.length > lowerBound
   }
 
-  /** Check that the array values are greater than lowerBound and 
-  *   that the array length is greater than 0 
+  /** Check that the array values are greater than 0 and 
+  *   that the array length is greater than lowerBound
   */
-  def arrayValsAndLengthGt[T](lowerBound: Double): Array[T] => Boolean = { (value: Array[T]) =>
-    value.map(getDouble).map(a => a > 0).forall(s => s == true) && value.length > lowerBound
+  def arrayValsGtZeroAndLengthGt[T](lowerBound: Double): Array[T] => Boolean = { (value: Array[T]) =>
+    value.map(getDouble).map(elem => elem > 0).forall(bool => bool == true) && value.length > lowerBound
   }
 }
 

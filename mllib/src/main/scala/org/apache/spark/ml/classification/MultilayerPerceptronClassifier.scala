@@ -41,8 +41,7 @@ private[ml] trait MultilayerPerceptronParams extends PredictorParams
     "Sizes of layers from input layer to output layer" +
       " E.g., Array(780, 100, 10) means 780 inputs, " +
       "one hidden layer with 100 neurons and output layer of 10 neurons.",
-    // TODO: how to check ALSO that all elements are greater than 0?
-    ParamValidators.arrayValsAndLengthGt(1)
+    ParamValidators.arrayValsGtZeroAndLengthGt(1)
   )
 
   /** @group getParam */
