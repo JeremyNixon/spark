@@ -215,6 +215,16 @@ object ParamValidators {
   def arrayLengthGt[T](lowerBound: Double): Array[T] => Boolean = { (value: Array[T]) =>
     value.length > lowerBound
   }
+
+  /** Check that the array values are greater than lowerBound and 
+  *   that the array length is greater than lowerBound 
+  */
+  def arrayValsAndLengthGt[T](lowerBound: Double): Array[T] => Boolean = { (value: Array[T]) =>
+    value.map(getDouble).map(a => a > 0).forall(s => s == true) && value.length > lowerBound
+  }
+
+
+
 }
 
 // specialize primitive-typed params because Java doesn't recognize scala.Double, scala.Int, ...
