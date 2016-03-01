@@ -26,8 +26,8 @@ import org.apache.spark.ml.{Model, Transformer, Estimator, PredictorParams}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared._
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.mllib.ann.{FeedForwardTopology, FeedForwardTrainer}
-import org.apache.spark.mllib.linalg.{VectorUDT, Vector}
+import org.apache.spark.ml.ann.{FeedForwardTopology, FeedForwardTrainer}
+import org.apache.spark.mllib.linalg.{VectorUDT, Vector, Vectors}
 import org.apache.spark.sql.{Row, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{StructField, StructType}
@@ -44,7 +44,7 @@ private[ml] trait MultilayerPerceptronParams extends PredictorParams
   final val layers: IntArrayParam = new IntArrayParam(this, "layers",
       "Sizes of layers including input and output from bottom to the top." +
         " E.g., Array(780, 100, 10) means 780 inputs, " +
-        "hidden layer with 100 neurons and output layer of 10 neurons."
+        "hidden layer with 100 neurons and output layer of 10 neurons.",
       ParamValidators.arrayLengthGt(1)
     )
 
@@ -91,7 +91,7 @@ private[ml] trait MultilayerPerceptronParams extends PredictorParams
     */
   def setSeed(value: Long): this.type = set(seed, value)
 
-  setDefault(seed -> 11L, maxIter -> 100, tol -> 1e-4, layers -> Array(1, 1), blockSize -> 1)
+  setDefault(seed -> 11L, maxIter -> 100, tol -> 1e-4, layers -> Array(1, 1), blockSize -> 128)
 }
 
 /**
@@ -100,6 +100,37 @@ private[ml] trait MultilayerPerceptronParams extends PredictorParams
   * See https://en.wikipedia.org/wiki/Multilayer_perceptron for details.
   *
   */
+
+/** Label to vector converter. */
+private object LabelConverter {
+  // TODO: Use OneHotEncoder instead
+  /**
+   * Encodes a label as a vector.
+   * Returns a vector of given length with zeroes at all positions
+   * and value 1.0 at the position that corresponds to the label.
+   *
+   * @param labeledPoint labeled point
+   * @param labelCount total number of labels
+   * @return pair of features and vector encoding of a label
+   */
+  def encodeLabeledPoint(labeledPoint: LabeledPoint, labelCount: Int): (Vector, Vector) = {
+    val output = Array.fill(labelCount)(0.0)
+    output(labeledPoint.label.toInt) = 1.0
+    (labeledPoint.features, Vectors.dense(output))
+  }
+
+  /**
+   * Converts a vector to a label.
+   * Returns the position of the maximal element of a vector.
+   *
+   * @param output label encoded with a vector
+   * @return label
+   */
+  def decodeLabel(output: Vector): Double = {
+    output.argmax.toDouble
+  }
+}
+
 @Experimental
 class MultilayerPerceptronRegressor (override val uid: String)
   extends Estimator[MultilayerPerceptronRegressorModel]
@@ -118,15 +149,21 @@ class MultilayerPerceptronRegressor (override val uid: String)
     * OutputCol has to contain output vectors.
     */
   override def fit(dataset: DataFrame): MultilayerPerceptronRegressorModel = {
+  	println("Inside fit")
     val data = dataset.select($(inputCol), $(outputCol)).map {
       case Row(x: Vector, y: Vector) => (x, y)
     }
+    data.take(5).foreach(println)
+    println("Initialized data")
+    data.take(5).foreach(println)
     val myLayers = getLayers
     val topology = FeedForwardTopology.multiLayerPerceptron(myLayers, false)
     val FeedForwardTrainer = new FeedForwardTrainer(topology, myLayers(0), myLayers.last)
     FeedForwardTrainer.LBFGSOptimizer.setConvergenceTol(getTol).setNumIterations(getMaxIter)
     FeedForwardTrainer.setStackSize(getBlockSize)
+    println("Instantiated the FeedForwardTrainer")
     val mlpModel = FeedForwardTrainer.train(data)
+    println("Model has been trained")
     new MultilayerPerceptronRegressorModel(uid, myLayers, mlpModel.weights())
   }
 
@@ -146,7 +183,31 @@ class MultilayerPerceptronRegressor (override val uid: String)
       s"Output column ${$(rawPredictionCol)} already exists.")
     val outputFields = schema.fields :+ StructField($(rawPredictionCol), new VectorUDT, false)
     StructType(outputFields)
-  }
+   }
+
+    /**
+   * Train a model using the given dataset and parameters.
+   * Developers can implement this instead of [[fit()]] to avoid dealing with schema validation
+   * and copying parameters into the model.
+   *
+   * @param dataset Training dataset
+   * @return Fitted model
+   */
+  override protected def train(dataset: DataFrame): MultilayerPerceptronRegressorModel = {
+  	val labels = Array.fill(dataset.map(datapoint => datapoint(0)).map(x => x.toDouble))
+  	val features = Array.fill(dataset.map(datapoint => datapoint(1)).map(x => x.toDouble))
+  	val data = (Vectors.dense(features), Vectors.dense(labels))
+	val myLayers = getLayers
+  	val topology = FeedForwardTopology.multiLayerPerceptron(myLayers, false)
+    val FeedForwardTrainer = new FeedForwardTrainer(topology, myLayers(0), myLayers.last)
+    FeedForwardTrainer.LBFGSOptimizer.setConvergenceTol(getTol).setNumIterations(getMaxIter)
+    FeedForwardTrainer.setStackSize(getBlockSize)
+    println("Instantiated the FeedForwardTrainer")
+    val mlpModel = FeedForwardTrainer.train(data)
+    println("Model has been trained")
+    new MultilayerPerceptronRegressorModel(uid, myLayers, mlpModel.weights())
+  	}
+ 
 
   def this() = this(Identifiable.randomUID("mlpr"))
 

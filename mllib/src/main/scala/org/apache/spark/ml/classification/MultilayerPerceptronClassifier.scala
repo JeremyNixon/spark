@@ -159,10 +159,14 @@ class MultilayerPerceptronClassifier @Since("1.5.0") (
    * @return Fitted model
    */
   override protected def train(dataset: DataFrame): MultilayerPerceptronClassificationModel = {
+    dataset.take(5).foreach(println)
     val myLayers = $(layers)
     val labels = myLayers.last
+    println(labels)
     val lpData = extractLabeledPoints(dataset)
+    lpData.take(5).foreach(println)
     val data = lpData.map(lp => LabelConverter.encodeLabeledPoint(lp, labels))
+    data.take(5).foreach(println)
     val topology = FeedForwardTopology.multiLayerPerceptron(myLayers, true)
     val FeedForwardTrainer = new FeedForwardTrainer(topology, myLayers(0), myLayers.last)
     FeedForwardTrainer.LBFGSOptimizer.setConvergenceTol($(tol)).setNumIterations($(maxIter))

@@ -148,7 +148,7 @@ private[ann] class AffineLayerModel private(w: BDM[Double], b: BDV[Double]) exte
 private[ann] object AffineLayerModel {
 
   /**
-   * Creates a model of Affine layer
+   * Creates a model of Affine layer 
    * @param layer layer properties
    * @param weights vector with weights
    * @param position position of weights in the vector
@@ -705,6 +705,7 @@ private[ann] class DataStacker(stackSize: Int, inputSize: Int, outputSize: Int)
    * @return RDD of double (always zero) and vector that contains the stacked vectors
    */
   def stack(data: RDD[(Vector, Vector)]): RDD[(Double, Vector)] = {
+    println("inside the stack call")
     val stackedData = if (stackSize == 1) {
       data.map { v =>
         (0.0,
@@ -875,7 +876,9 @@ private[ml] class FeedForwardTrainer(
    * @return model
    */
   def train(data: RDD[(Vector, Vector)]): TopologyModel = {
+    println("We got to the train call")
     val newWeights = optimizer.optimize(dataStacker.stack(data), getWeights)
+    println("New Weights instantiated!")
     topology.getInstance(newWeights)
   }
 
