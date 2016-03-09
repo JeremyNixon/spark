@@ -101,35 +101,35 @@ private[ml] trait MultilayerPerceptronParams extends PredictorParams
   *
   */
 
-/** Label to vector converter. */
-private object LabelConverter {
-  // TODO: Use OneHotEncoder instead
-  /**
-   * Encodes a label as a vector.
-   * Returns a vector of given length with zeroes at all positions
-   * and value 1.0 at the position that corresponds to the label.
-   *
-   * @param labeledPoint labeled point
-   * @param labelCount total number of labels
-   * @return pair of features and vector encoding of a label
-   */
-  def encodeLabeledPoint(labeledPoint: LabeledPoint, labelCount: Int): (Vector, Vector) = {
-    val output = Array.fill(labelCount)(0.0)
-    output(labeledPoint.label.toInt) = 1.0
-    (labeledPoint.features, Vectors.dense(output))
-  }
+// /** Label to vector converter. */
+// private object LabelConverter {
+//   // TODO: Use OneHotEncoder instead
+//   /**
+//    * Encodes a label as a vector.
+//    * Returns a vector of given length with zeroes at all positions
+//    * and value 1.0 at the position that corresponds to the label.
+//    *
+//    * @param labeledPoint labeled point
+//    * @param labelCount total number of labels
+//    * @return pair of features and vector encoding of a label
+//    */
+//   def encodeLabeledPoint(labeledPoint: LabeledPoint, labelCount: Int): (Vector, Vector) = {
+//     val output = Array.fill(labelCount)(0.0)
+//     output(labeledPoint.label.toInt) = 1.0
+//     (labeledPoint.features, Vectors.dense(output))
+//   }
 
-  /**
-   * Converts a vector to a label.
-   * Returns the position of the maximal element of a vector.
-   *
-   * @param output label encoded with a vector
-   * @return label
-   */
-  def decodeLabel(output: Vector): Double = {
-    output.argmax.toDouble
-  }
-}
+//   /**
+//    * Converts a vector to a label.
+//    * Returns the position of the maximal element of a vector.
+//    *
+//    * @param output label encoded with a vector
+//    * @return label
+//    */
+//   def decodeLabel(output: Vector): Double = {
+//     output.argmax.toDouble
+//   }
+// }
 
 @Experimental
 class MultilayerPerceptronRegressor (override val uid: String)
@@ -194,16 +194,16 @@ class MultilayerPerceptronRegressor (override val uid: String)
    * @return Fitted model
    */
   override protected def train(dataset: DataFrame): MultilayerPerceptronRegressorModel = {
-  	val labels = Array.fill(dataset.map(datapoint => datapoint(0)).map(x => x.toDouble))
-  	val features = Array.fill(dataset.map(datapoint => datapoint(1)).map(x => x.toDouble))
-  	val data = (Vectors.dense(features), Vectors.dense(labels))
-	val myLayers = getLayers
+    val labels = dataset.map(datapoint => datapoint(0).asInstanceOf[Double])
+    val features = dataset.map(datapoint => datapoint(1).asInstanceOf[Double])
+  	val data = (Vectors.dense(features.collect()), Vectors.dense(labels.collect()))
+	  val myLayers = getLayers
   	val topology = FeedForwardTopology.multiLayerPerceptron(myLayers, false)
     val FeedForwardTrainer = new FeedForwardTrainer(topology, myLayers(0), myLayers.last)
     FeedForwardTrainer.LBFGSOptimizer.setConvergenceTol(getTol).setNumIterations(getMaxIter)
     FeedForwardTrainer.setStackSize(getBlockSize)
     println("Instantiated the FeedForwardTrainer")
-    val mlpModel = FeedForwardTrainer.train(data)
+    val mlpModel = FeedForwardTrainer.train(SparkContext.parallelize(data))
     println("Model has been trained")
     new MultilayerPerceptronRegressorModel(uid, myLayers, mlpModel.weights())
   	}
