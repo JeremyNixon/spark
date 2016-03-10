@@ -101,9 +101,8 @@ private[ml] trait MultilayerPerceptronParams extends PredictorParams
   *
   */
 
-// /** Label to vector converter. */
+/** Label to vector converter. */
 // private object LabelConverter {
-//   // TODO: Use OneHotEncoder instead
 //   /**
 //    * Encodes a label as a vector.
 //    * Returns a vector of given length with zeroes at all positions
@@ -193,20 +192,20 @@ class MultilayerPerceptronRegressor (override val uid: String)
    * @param dataset Training dataset
    * @return Fitted model
    */
-  override protected def train(dataset: DataFrame): MultilayerPerceptronRegressorModel = {
-    val labels = dataset.map(datapoint => datapoint(0).asInstanceOf[Double])
-    val features = dataset.map(datapoint => datapoint(1).asInstanceOf[Double])
-  	val data = (Vectors.dense(features.collect()), Vectors.dense(labels.collect()))
-	  val myLayers = getLayers
-  	val topology = FeedForwardTopology.multiLayerPerceptron(myLayers, false)
-    val FeedForwardTrainer = new FeedForwardTrainer(topology, myLayers(0), myLayers.last)
-    FeedForwardTrainer.LBFGSOptimizer.setConvergenceTol(getTol).setNumIterations(getMaxIter)
-    FeedForwardTrainer.setStackSize(getBlockSize)
-    println("Instantiated the FeedForwardTrainer")
-    val mlpModel = FeedForwardTrainer.train(SparkContext.parallelize(data))
-    println("Model has been trained")
-    new MultilayerPerceptronRegressorModel(uid, myLayers, mlpModel.weights())
-  	}
+  // override protected def train(dataset: DataFrame): MultilayerPerceptronRegressorModel = {
+  //   val labels = dataset.map(datapoint => datapoint(0).asInstanceOf[Double])
+  //   val features = dataset.map(datapoint => datapoint(1).asInstanceOf[Double])
+  // 	val data = (Vectors.dense(features.collect()), Vectors.dense(labels.collect()))
+	 //  val myLayers = getLayers
+  // 	val topology = FeedForwardTopology.multiLayerPerceptron(myLayers, false)
+  //   val FeedForwardTrainer = new FeedForwardTrainer(topology, myLayers(0), myLayers.last)
+  //   FeedForwardTrainer.LBFGSOptimizer.setConvergenceTol(getTol).setNumIterations(getMaxIter)
+  //   FeedForwardTrainer.setStackSize(getBlockSize)
+  //   println("Instantiated the FeedForwardTrainer")
+  //   val mlpModel = FeedForwardTrainer.train(SparkContext.parallelize(data))
+  //   println("Model has been trained")
+  //   new MultilayerPerceptronRegressorModel(uid, myLayers, mlpModel.weights())
+  // 	}
  
 
   def this() = this(Identifiable.randomUID("mlpr"))
