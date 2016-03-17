@@ -193,16 +193,17 @@ class MultilayerPerceptronRegressor (override val uid: String)
    * @return Fitted model
    */
   // override protected def train(dataset: DataFrame): MultilayerPerceptronRegressorModel = {
-  //   val labels = dataset.map(datapoint => datapoint(0).asInstanceOf[Double])
-  //   val features = dataset.map(datapoint => datapoint(1).asInstanceOf[Double])
-  // 	val data = (Vectors.dense(features.collect()), Vectors.dense(labels.collect()))
+  //   val labels = Vectors.dense(dataset.map(datapoint => datapoint(0).asInstanceOf[Double]).collect())
+  //   val features = Vectors.dense(dataset.map(datapoint => datapoint(1).asInstanceOf[Double]).collect())
+  // 	val data = Spark
+  //   val data = dataset.map(d => (d(0).asInstanceOf[Double], d(1).asInstanceOf[Double])
 	 //  val myLayers = getLayers
   // 	val topology = FeedForwardTopology.multiLayerPerceptron(myLayers, false)
   //   val FeedForwardTrainer = new FeedForwardTrainer(topology, myLayers(0), myLayers.last)
   //   FeedForwardTrainer.LBFGSOptimizer.setConvergenceTol(getTol).setNumIterations(getMaxIter)
   //   FeedForwardTrainer.setStackSize(getBlockSize)
   //   println("Instantiated the FeedForwardTrainer")
-  //   val mlpModel = FeedForwardTrainer.train(SparkContext.parallelize(data))
+  //   val mlpModel = FeedForwardTrainer.train(data)
   //   println("Model has been trained")
   //   new MultilayerPerceptronRegressorModel(uid, myLayers, mlpModel.weights())
   // 	}
