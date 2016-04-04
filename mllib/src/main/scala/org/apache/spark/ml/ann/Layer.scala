@@ -120,6 +120,7 @@ private[ann] class AffineLayerModel private(w: BDM[Double], b: BDV[Double]) exte
   private var ones: BDV[Double] = null
 
   override def eval(data: BDM[Double]): BDM[Double] = {
+    println("Eval Affine")
     if (z == null || z.cols != data.cols) z = new BDM[Double](w.rows, data.cols)
     z(::, *) := b
     BreezeUtil.dgemm(1.0, w, data, 1.0, z)
@@ -298,6 +299,7 @@ private[ann] object ActivationFunction {
  */
 private[ann] class SoftmaxFunction extends ActivationFunction {
   override def eval(x: BDM[Double], y: BDM[Double]): Unit = {
+    println("Eval Softmax")
     var j = 0
     // find max value to make sure later that exponent is computable
     while (j < x.cols) {
@@ -330,6 +332,11 @@ private[ann] class SoftmaxFunction extends ActivationFunction {
     output: BDM[Double],
     target: BDM[Double],
     result: BDM[Double]): Double = {
+    println("Applying Softmax Cross Entropy Error!")
+    println("Output =")
+    println(output)
+    println("Target =")
+    println(target)
     def m(o: Double, t: Double): Double = o - t
     ActivationFunction(output, target, result, m)
     -Bsum( target :* Blog(output)) / output.cols
@@ -350,6 +357,7 @@ private[ann] class SoftmaxFunction extends ActivationFunction {
  */
 private[ann] class SigmoidFunction extends ActivationFunction {
   override def eval(x: BDM[Double], y: BDM[Double]): Unit = {
+    println("Eval Sigmoid")
     def s(z: Double): Double = Bsigmoid(z)
     ActivationFunction(x, y, s)
   }
@@ -364,17 +372,72 @@ private[ann] class SigmoidFunction extends ActivationFunction {
   }
 
   override def derivative(x: BDM[Double], y: BDM[Double]): Unit = {
+    // This needs to be the derivative of the OUTPUT of the sigmoid, not the sigmoid's derivative itself
     def sd(z: Double): Double = (1 - z) * z
     ActivationFunction(x, y, sd)
   }
 
   override def squared(output: BDM[Double], target: BDM[Double], result: BDM[Double]): Double = {
     // TODO: make it readable
+    println("Applying Sigmoid squared error")
+    println("Output =")
+    println(output)
+    println("Target =")
+    println(target)
     def m(o: Double, t: Double): Double = (o - t)
     ActivationFunction(output, target, result, m)
     val e = Bsum(result :* result) / 2 / output.cols
     def m2(x: Double, o: Double) = x * (o - o * o)
     ActivationFunction(result, output, result, m2)
+    println("New Error:")
+    println(e)
+    println("")
+    println("")
+    e
+  }
+}
+
+
+/**
+  * Implements Identity transform (activation function)
+  */
+private[ann] class IdentityFunction extends ActivationFunction {
+  override def eval(x: BDM[Double], y: BDM[Double]): Unit = {
+    println("Eval Identity")
+    def s(z: Double): Double = z
+    ActivationFunction(x, y, s)
+  }
+
+  override def crossEntropy(
+                             output: BDM[Double],
+                             target: BDM[Double],
+                             result: BDM[Double]): Double = {
+    throw new UnsupportedOperationException("Sorry, cross-entropy error is not defined for Identity.")
+  }
+
+  override def derivative(x: BDM[Double], y: BDM[Double]): Unit = {
+    def id(z: Double): Double = z
+    ActivationFunction(x, y, id)
+  }
+
+  override def squared(output: BDM[Double], target: BDM[Double], result: BDM[Double]): Double = {
+    // TODO: make it readable
+    println("Applying Identity squared error")
+    def m(o: Double, t: Double): Double = (o - t)
+    ActivationFunction(output, target, result, m)
+    println("Output =")
+    println(output)
+    println("Target =")
+    println(target)
+    println("Result =")
+    println(result)
+    // Commenting out division by output.cols... not sure why this is in sse
+    // I guess it's trying to control for batch size.
+    val e = Bsum(result :* result) / 2 / output.cols
+    def m2(x: Double, o: Double) = x * (o - o * o)
+    ActivationFunction(result, output, result, m2)
+    println("New Error:")
+    println(e)
     e
   }
 }
@@ -441,6 +504,7 @@ private[ann] class FunctionalLayerModel private (val activationFunction: Activat
     activationFunction match {
       case sigmoid: SigmoidFunction => squared(output, target)
       case softmax: SoftmaxFunction => crossEntropy(output, target)
+      case identity: IdentityFunction => squared(output, target)
     }
   }
 }
@@ -528,13 +592,25 @@ private[ml] object FeedForwardTopology {
    * @return multilayer perceptron topology
    */
   def multiLayerPerceptron(layerSizes: Array[Int], softmax: Boolean = true): FeedForwardTopology = {
+    println("CONSTRUCTING TOPOLOGY")
+    println("layerSizes:")
+    println(layerSizes)
     val layers = new Array[Layer]((layerSizes.length - 1) * 2)
     for(i <- 0 until layerSizes.length - 1){
       layers(i * 2) = new AffineLayer(layerSizes(i), layerSizes(i + 1))
+      println("Added Affine Layer")
       layers(i * 2 + 1) =
         if (softmax && i == layerSizes.length - 2) {
-          new FunctionalLayer(new SoftmaxFunction())
+          //         Changed from Softmax:
+          println("Added Identity Function")
+          new FunctionalLayer(new IdentityFunction())
+//          println("Added Sigmoid Function")
+//          new FunctionalLayer(new SigmoidFunction(
+//           ))
+//          println("Added Softmax Function")
+//          new FunctionalLayer(new SoftmaxFunction)
         } else {
+          println("Added Sigmoid Function")
           new FunctionalLayer(new SigmoidFunction())
         }
     }
@@ -554,8 +630,10 @@ private[ml] class FeedForwardModel private(
   override def forward(data: BDM[Double]): Array[BDM[Double]] = {
     val outputs = new Array[BDM[Double]](layerModels.length)
     outputs(0) = layerModels(0).eval(data)
+    println("Outputs layer 0: \n" + outputs(0))
     for (i <- 1 until layerModels.length) {
       outputs(i) = layerModels(i).eval(outputs(i-1))
+      println("Outputs layer" + i + ": \n" + outputs(i))
     }
     outputs
   }
@@ -565,6 +643,7 @@ private[ml] class FeedForwardModel private(
     target: BDM[Double],
     cumGradient: Vector,
     realBatchSize: Int): Double = {
+//    println("INSIDE COMPUTE GRADIENT")
     val outputs = forward(data)
     val deltas = new Array[BDM[Double]](layerModels.length)
     val L = layerModels.length - 1
@@ -573,6 +652,10 @@ private[ml] class FeedForwardModel private(
       case _ =>
         throw new UnsupportedOperationException("Non-functional layer not supported at the top")
     }
+    println("NewE = " + newE)
+    println("newError = " + newError)
+//    println("New error:")
+//    println(newError)
     deltas(L) = new BDM[Double](0, 0)
     deltas(L - 1) = newE
     for (i <- (L - 2) to (0, -1)) {
@@ -705,7 +788,6 @@ private[ann] class DataStacker(stackSize: Int, inputSize: Int, outputSize: Int)
    * @return RDD of double (always zero) and vector that contains the stacked vectors
    */
   def stack(data: RDD[(Vector, Vector)]): RDD[(Double, Vector)] = {
-    println("inside the stack call")
     val stackedData = if (stackSize == 1) {
       data.map { v =>
         (0.0,
@@ -772,6 +854,7 @@ private[ann] class ANNUpdater extends Updater {
  */
 private[ml] class FeedForwardTrainer(
     topology: Topology,
+    // TODO: Add validation to input/output sizes
     val inputSize: Int,
     val outputSize: Int) extends Serializable {
 
@@ -879,6 +962,7 @@ private[ml] class FeedForwardTrainer(
     println("We got to the train call")
     val newWeights = optimizer.optimize(dataStacker.stack(data), getWeights)
     println("New Weights instantiated!")
+//    println(newWeights)
     topology.getInstance(newWeights)
   }
 
