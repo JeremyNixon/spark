@@ -17,25 +17,30 @@
 
 # mllib.R: Provides methods for MLlib integration
 
-#' @title S4 class that represents a PipelineModel
-#' @param model A Java object reference to the backing Scala PipelineModel
-#' @export
-setClass("PipelineModel", representation(model = "jobj"))
-
-#' @title S4 class that represents a NaiveBayesModel
-#' @param jobj a Java object reference to the backing Scala NaiveBayesWrapper
-#' @export
-setClass("NaiveBayesModel", representation(jobj = "jobj"))
+#' #' @title S4 class that represents a PipelineModel
+#' #' @param model A Java object reference to the backing Scala PipelineModel
+#' #' @export
+#' setClass("PipelineModel", representation(model = "jobj"))
 
 #' @title S4 class that represents a AFTSurvivalRegressionModel
 #' @param jobj a Java object reference to the backing Scala AFTSurvivalRegressionWrapper
 #' @export
 setClass("AFTSurvivalRegressionModel", representation(jobj = "jobj"))
 
+#' @title S4 class that represents a GLMModel
+#' @param model A Java object reference to the backing Scala PipelineModel
+#' @export
+setClass("GLMModel", representation(jobj = "jobj"))
+
 #' @title S4 class that represents a KMeansModel
 #' @param jobj a Java object reference to the backing Scala KMeansModel
 #' @export
 setClass("KMeansModel", representation(jobj = "jobj"))
+
+#' @title S4 class that represents a NaiveBayesModel
+#' @param jobj a Java object reference to the backing Scala NaiveBayesWrapper
+#' @export
+setClass("NaiveBayesModel", representation(jobj = "jobj"))
 
 #' Fits a generalized linear model
 #'
@@ -67,14 +72,25 @@ setClass("KMeansModel", representation(jobj = "jobj"))
 #'}
 setMethod("glm", signature(formula = "formula", family = "ANY", data = "DataFrame"),
           function(formula, family = c("gaussian", "binomial"), data, lambda = 0, alpha = 0,
-            standardize = TRUE, solver = "auto") {
+                   standardize = TRUE, solver = "auto") {
             family <- match.arg(family)
             formula <- paste(deparse(formula), collapse = "")
-            model <- callJStatic("org.apache.spark.ml.api.r.SparkRWrappers",
-                                 "fitRModelFormula", formula, data@sdf, family, lambda,
-                                 alpha, standardize, solver)
-            return(new("PipelineModel", model = model))
+            jobj <- callJStatic("org.apache.spark.ml.api.r.GLMWrapper",
+                                "fitRModelFormula", formula, data@sdf, family, lambda,
+                                alpha, standardize, solver)
+            return(new("GLMModel", jobj = jobj))
           })
+
+# setMethod("glm", signature(formula = "formula", family = "ANY", data = "DataFrame"),
+#           function(formula, family = c("gaussian", "binomial"), data, lambda = 0, alpha = 0,
+#                    standardize = TRUE, solver = "auto") {
+#             family <- match.arg(family)
+#             formula <- paste(deparse(formula), collapse = "")
+#             model <- callJStatic("org.apache.spark.ml.api.r.GLMWrapper",
+#                                  "fitRModelFormula", formula, data@sdf, family, lambda,
+#                                  alpha, standardize, solver)
+#             return(new("PipelineModel", model = model))
+#           })
 
 #' Make predictions from a model
 #'
@@ -91,7 +107,7 @@ setMethod("glm", signature(formula = "formula", family = "ANY", data = "DataFram
 #' predicted <- predict(model, testData)
 #' showDF(predicted)
 #'}
-setMethod("predict", signature(object = "PipelineModel"),
+setMethod("predict", signature(object = "GLMModel"),
           function(object, newData) {
             return(dataFrame(callJMethod(object@model, "transform", newData@sdf)))
           })
@@ -136,16 +152,16 @@ setMethod("predict", signature(object = "NaiveBayesModel"),
 #' model <- glm(y ~ x, trainingData)
 #' summary(model)
 #'}
-setMethod("summary", signature(object = "PipelineModel"),
+setMethod("summary", signature(object = "GLMModel"),
           function(object, ...) {
-            modelName <- callJStatic("org.apache.spark.ml.api.r.SparkRWrappers",
+            modelName <- callJStatic("org.apache.spark.ml.api.r.GLMWrapper",
                                      "getModelName", object@model)
-            features <- callJStatic("org.apache.spark.ml.api.r.SparkRWrappers",
+            features <- callJStatic("org.apache.spark.ml.api.r.GLMWrapper",
                                     "getModelFeatures", object@model)
-            coefficients <- callJStatic("org.apache.spark.ml.api.r.SparkRWrappers",
+            coefficients <- callJStatic("org.apache.spark.ml.api.r.GLMWrapper",
                                         "getModelCoefficients", object@model)
             if (modelName == "LinearRegressionModel") {
-              devianceResiduals <- callJStatic("org.apache.spark.ml.api.r.SparkRWrappers",
+              devianceResiduals <- callJStatic("org.apache.spark.ml.api.r.GLMWrapper",
                                                "getModelDevianceResiduals", object@model)
               devianceResiduals <- matrix(devianceResiduals, nrow = 1)
               colnames(devianceResiduals) <- c("Min", "Max")
@@ -166,7 +182,7 @@ setMethod("summary", signature(object = "PipelineModel"),
 
 #' Get the summary of a naive Bayes model
 #'
-#' Returns the summary of a naive Bayes model produced by naiveBayes(), similarly to R's summary().
+#' Returns the summary of a naive Bayes model produced by naiveBayes(), similarly to R's summary().st
 #'
 #' @param object A fitted MLlib model
 #' @return a list containing 'apriori', the label distribution, and 'tables', conditional
@@ -215,7 +231,7 @@ setMethod("kmeans", signature(x = "DataFrame"),
             jobj <- callJStatic("org.apache.spark.ml.r.KMeansWrapper", "fit", x@sdf,
                                 centers, iter.max, algorithm, columnNames)
             return(new("KMeansModel", jobj = jobj))
-         })
+          })
 
 #' Get fitted result from a k-means model
 #'
@@ -308,7 +324,7 @@ setMethod("naiveBayes", signature(formula = "formula", data = "DataFrame"),
           function(formula, data, laplace = 0, ...) {
             formula <- paste(deparse(formula), collapse = "")
             jobj <- callJStatic("org.apache.spark.ml.r.NaiveBayesWrapper", "fit",
-                                 formula, data@sdf, laplace)
+                                formula, data@sdf, laplace)
             return(new("NaiveBayesModel", jobj = jobj))
           })
 
